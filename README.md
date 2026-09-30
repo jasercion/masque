@@ -2,6 +2,16 @@
 
 `masque` is a high-performance Zig project that ingests streaming video input (network UDP packets, MJPEG streams, or synthetic calibration generators), extracts eye and facial feature tracking metrics, and outputs formatted Open Sound Control (OSC) data conforming to the [VRCFaceTracking (VRCFT) standard](https://docs.vrcft.io).
 
+## Documentation & Wiki
+
+Detailed architecture, API references, protocol schemas, and development guides are available in the [Project Wiki](wiki/Home.md):
+- [Architecture & Data Flow](wiki/Architecture-and-Data-Flow.md)
+- [API Reference](wiki/API-Reference.md)
+- [Unified Expressions & OSC Protocol](wiki/Unified-Expressions-and-OSC.md)
+- [Video Ingestion & Tracking](wiki/Video-Ingestion-and-Tracking.md)
+- [CLI Usage & Configuration](wiki/CLI-Usage-and-Configuration.md)
+- [Development & Testing](wiki/Development-and-Testing.md)
+
 ## Features
 
 - **Full Unified Expressions (UE) Specification**:
