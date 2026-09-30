@@ -1,0 +1,29 @@
+# Zig build artifacts & cache
+zig-out/
+zig-cache/
+.zig-cache/
+
+# Operating System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# JetBrains / CLion user-specific files
+.idea/**/workspace.xml
+.idea/**/shelf/
+.idea/**/httpRequests/
+.idea/**/dataSources/
+.idea/**/dataSources.local.xml
+.idea/**/queries/
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+
+# Editor backups and swap files
+*.swp
+*.swo
+*~
+*.bak
