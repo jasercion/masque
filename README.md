@@ -26,6 +26,7 @@ Detailed architecture, API references, protocol schemas, and development guides 
 - **Multi-Source Streaming Video Ingestion**:
   - `SyntheticSource`: Procedurally animated facial & eye tracking video generator for continuous headless testing and calibration.
   - `UdpFrameSource`: Low-latency UDP video frame receiver for wireless VR headsets and camera streams.
+  - `FfmpegSource`: Built-in webcam capture (avfoundation / v4l2 / dshow) or any external stream URL (RTSP, HTTP MJPEG, HLS, files), decoded through an `ffmpeg` subprocess.
   - `MjpegScanner`: Extraction and inspection of JPEG frames and dimensions from streaming chunks.
 - **Computer Vision & Signal Processing**:
   - Gaze vector tracking, pupil centroid localization, eyelid aspect ratio analysis, and mouth deformation extraction.
@@ -47,6 +48,7 @@ Detailed architecture, API references, protocol schemas, and development guides 
     ├── video/
     │   ├── frame.zig       # Video frame buffer & format conversions
     │   ├── jpeg_lite.zig   # JPEG frame parser & dimension scanner
+    │   ├── ffmpeg.zig      # Webcam & external stream source (ffmpeg subprocess)
     │   └── stream.zig      # Stream sources (Synthetic, UDP, etc.)
     └── tracking/
         ├── filter.zig      # One Euro & EMA temporal smoothing filters
@@ -74,6 +76,16 @@ The compiled binary will be placed in `zig-out/bin/masque`.
 # Run with synthetic video stream sending OSC to local VRCFT (127.0.0.1:9000)
 ./zig-out/bin/masque
 
+# Track your face with the built-in webcam (requires ffmpeg on PATH)
+./zig-out/bin/masque --webcam --dump-osc
+
+# Pick a different camera (run --list-webcams to see indices / names)
+./zig-out/bin/masque --list-webcams
+./zig-out/bin/masque --webcam --webcam-device 1
+
+# Use another streaming source instead of the webcam (RTSP, HTTP MJPEG, file, ...)
+./zig-out/bin/masque --stream-url rtsp://192.168.1.50:8554/face
+
 # Ingest live UDP video stream on port 8888 and send OSC to custom target
 ./zig-out/bin/masque --source udp --udp-in-port 8888 --osc-host 127.0.0.1 --osc-port 9000
 
@@ -88,7 +100,12 @@ The compiled binary will be placed in `zig-out/bin/masque`.
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--source <type>` | Video stream source (`synthetic` or `udp`) | `synthetic` |
+| `--source <type>` | Video stream source (`synthetic`, `udp`, `webcam`, or `stream`) | `synthetic` |
+| `--webcam` / `--no-webcam` | Turn the built-in webcam on / off (last one wins) | off |
+| `--webcam-device <id>` | Camera: avfoundation index (macOS), `/dev/videoN` (Linux), device name (Windows, required) | `0` / `/dev/video0` |
+| `--list-webcams` | List available cameras and exit | - |
+| `--stream-url <url>` | Use another video stream (RTSP, HTTP MJPEG, HLS, file); implies `--source stream` | - |
+| `--ffmpeg <path>` | ffmpeg executable used by `webcam` / `stream` sources | `ffmpeg` |
 | `--fps <int>` | Video stream frame rate | `30` |
 | `--width <int>` | Frame width in pixels | `640` |
 | `--height <int>` | Frame height in pixels | `480` |

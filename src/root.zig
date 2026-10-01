@@ -20,12 +20,14 @@ pub const video = struct {
     pub const frame = @import("video/frame.zig");
     pub const stream = @import("video/stream.zig");
     pub const jpeg_lite = @import("video/jpeg_lite.zig");
+    pub const ffmpeg = @import("video/ffmpeg.zig");
 
     pub const VideoFrame = frame.VideoFrame;
     pub const PixelFormat = frame.PixelFormat;
     pub const StreamSource = stream.StreamSource;
     pub const SyntheticSource = stream.SyntheticSource;
     pub const UdpFrameSource = stream.UdpFrameSource;
+    pub const FfmpegSource = ffmpeg.FfmpegSource;
     pub const JpegScanner = jpeg_lite.JpegScanner;
     pub const JpegDimensions = jpeg_lite.JpegDimensions;
 };
@@ -66,6 +68,7 @@ test {
     _ = @import("video/frame.zig");
     _ = @import("video/stream.zig");
     _ = @import("video/jpeg_lite.zig");
+    _ = @import("video/ffmpeg.zig");
     _ = @import("tracking/filter.zig");
     _ = @import("tracking/landmarks.zig");
     _ = @import("tracking/tracker.zig");

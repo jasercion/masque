@@ -188,10 +188,34 @@ pub const StreamSource = struct {
 };
 ```
 
-### `SyntheticSource` & `UdpFrameSource`
+### `SyntheticSource`, `UdpFrameSource` & `FfmpegSource`
 
 * `SyntheticSource`: Produces procedurally animated eye gaze, blinks, and jaw motions.
 * `UdpFrameSource`: Binds to a local UDP port and reassembles incoming frame datagrams.
+* `FfmpegSource`: Spawns `ffmpeg` to capture from the built-in webcam or any stream URL and reads raw grayscale frames from its stdout.
+
+```zig
+pub const FfmpegSource = struct {
+    pub const Input = union(enum) {
+        webcam: ?[]const u8, // device id; null = platform default
+        url: []const u8,     // RTSP, HTTP MJPEG, HLS, file, ...
+    };
+    pub const Options = struct {
+        input: Input,
+        width: u32,
+        height: u32,
+        fps: u32,
+        ffmpeg_path: []const u8 = "ffmpeg",
+    };
+
+    pub fn init(allocator: std.mem.Allocator, io: std.Io, options: Options) !FfmpegSource;
+    pub fn source(self: *FfmpegSource) StreamSource;
+    pub fn nextFrame(self: *FfmpegSource, allocator: std.mem.Allocator) !?VideoFrame; // null when ffmpeg exits
+    pub fn deinit(self: *FfmpegSource) void; // kills the ffmpeg process
+    pub fn listWebcams(io: std.Io, ffmpeg_path: []const u8) !void;
+};
+```
+
 * `JpegScanner`: Scans binary streams for SOI (`0xFFD8`) and EOI (`0xFFD9`) markers and extracts dimensions from SOF0 blocks.
 
 ---

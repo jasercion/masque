@@ -6,6 +6,11 @@ pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(arena);
 
     var source_type: []const u8 = "synthetic";
+    var webcam_enabled: bool = false;
+    var webcam_device: ?[]const u8 = null;
+    var stream_url: ?[]const u8 = null;
+    var ffmpeg_path: []const u8 = "ffmpeg";
+    var list_webcams: bool = false;
     var fps: u32 = 30;
     var width: u32 = 640;
     var height: u32 = 480;
@@ -27,6 +32,23 @@ pub fn main(init: std.process.Init) !void {
         } else if (std.mem.eql(u8, arg, "--source") and i + 1 < args.len) {
             i += 1;
             source_type = args[i];
+            webcam_enabled = std.mem.eql(u8, source_type, "webcam");
+        } else if (std.mem.eql(u8, arg, "--webcam")) {
+            webcam_enabled = true;
+        } else if (std.mem.eql(u8, arg, "--no-webcam")) {
+            webcam_enabled = false;
+            if (std.mem.eql(u8, source_type, "webcam")) source_type = "synthetic";
+        } else if (std.mem.eql(u8, arg, "--webcam-device") and i + 1 < args.len) {
+            i += 1;
+            webcam_device = args[i];
+        } else if (std.mem.eql(u8, arg, "--stream-url") and i + 1 < args.len) {
+            i += 1;
+            stream_url = args[i];
+        } else if (std.mem.eql(u8, arg, "--ffmpeg") and i + 1 < args.len) {
+            i += 1;
+            ffmpeg_path = args[i];
+        } else if (std.mem.eql(u8, arg, "--list-webcams")) {
+            list_webcams = true;
         } else if (std.mem.eql(u8, arg, "--fps") and i + 1 < args.len) {
             i += 1;
             fps = try std.fmt.parseInt(u32, args[i], 10);
@@ -60,6 +82,26 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
+    if (list_webcams) {
+        try masque.video.FfmpegSource.listWebcams(init.io, ffmpeg_path);
+        return;
+    }
+
+    // Resolve the video source. `--source`, `--webcam` and `--no-webcam` are last-wins;
+    // `--stream-url` implies `--source stream` unless the webcam is switched on.
+    if (webcam_enabled) {
+        if (stream_url != null) {
+            std.debug.print("error: --webcam and --stream-url are mutually exclusive\n", .{});
+            std.process.exit(2);
+        }
+        source_type = "webcam";
+    } else if (stream_url != null) {
+        source_type = "stream";
+    } else if (std.mem.eql(u8, source_type, "stream")) {
+        std.debug.print("error: --source stream requires --stream-url <url>\n", .{});
+        std.process.exit(2);
+    }
+
     std.debug.print("====================================================\n", .{});
     std.debug.print("  MASQUE - Streaming Video to VRCFT (docs.vrcft.io)  \n", .{});
     std.debug.print("====================================================\n", .{});
@@ -76,6 +118,8 @@ pub fn main(init: std.process.Init) !void {
     // 1. Initialize Stream Source
     var synthetic_source: ?masque.video.SyntheticSource = null;
     var udp_source: ?masque.video.UdpFrameSource = null;
+    var ffmpeg_source: ?masque.video.FfmpegSource = null;
+    defer if (ffmpeg_source) |*src| src.deinit();
 
     var stream: masque.video.StreamSource = undefined;
 
@@ -83,6 +127,30 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("Binding UDP video receiver on port {d}...\n", .{udp_in_port});
         udp_source = try masque.video.UdpFrameSource.init(arena, udp_in_port, width, height);
         stream = udp_source.?.source();
+    } else if (std.mem.eql(u8, source_type, "webcam") or std.mem.eql(u8, source_type, "stream")) {
+        const input: masque.video.FfmpegSource.Input = if (stream_url) |url|
+            .{ .url = url }
+        else
+            .{ .webcam = webcam_device };
+        switch (input) {
+            .webcam => |dev| std.debug.print("Opening webcam '{s}' via {s}...\n", .{ dev orelse "default", ffmpeg_path }),
+            .url => |url| std.debug.print("Opening video stream '{s}' via {s}...\n", .{ url, ffmpeg_path }),
+        }
+        ffmpeg_source = masque.video.FfmpegSource.init(arena, init.io, .{
+            .input = input,
+            .width = width,
+            .height = height,
+            .fps = fps,
+            .ffmpeg_path = ffmpeg_path,
+        }) catch |err| {
+            // Only reachable on platforms without a default device (Windows).
+            if (@as(anyerror, err) == error.WebcamDeviceRequired) {
+                std.debug.print("error: this platform has no default webcam; pass --webcam-device <name> (see --list-webcams)\n", .{});
+                std.process.exit(2);
+            }
+            return err;
+        };
+        stream = ffmpeg_source.?.source();
     } else {
         std.debug.print("Initializing synthetic facial simulation generator...\n", .{});
         synthetic_source = try masque.video.SyntheticSource.init(arena, width, height, fps);
@@ -178,7 +246,15 @@ fn printHelp() void {
         \\
         \\Options:
         \\  -h, --help            Show this help text
-        \\  --source <type>       Video stream source: 'synthetic' (default) or 'udp'
+        \\  --source <type>       Video source: 'synthetic' (default), 'udp', 'webcam', or 'stream'
+        \\  --webcam              Turn on the built-in webcam (same as --source webcam)
+        \\  --no-webcam           Turn the webcam back off (overrides an earlier --webcam)
+        \\  --webcam-device <id>  Camera to use: avfoundation index on macOS (default: 0),
+        \\                        /dev/videoN on Linux, device name on Windows (required)
+        \\  --list-webcams        List available camera devices and exit
+        \\  --stream-url <url>    Use another video stream (RTSP, HTTP MJPEG, file, ...);
+        \\                        implies --source stream
+        \\  --ffmpeg <path>       ffmpeg executable for webcam/stream sources (default: ffmpeg)
         \\  --fps <int>           Target stream frame rate (default: 30)
         \\  --width <int>         Stream width in pixels (default: 640)
         \\  --height <int>        Stream height in pixels (default: 480)

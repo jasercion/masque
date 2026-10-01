@@ -33,6 +33,13 @@ Generates deterministic, animated facial patterns for continuous integration, be
 ### `UdpFrameSource`
 Receives raw pixel or JPEG frames from external cameras and wireless VR headsets over a UDP socket. Supports non-blocking socket reads and buffer reuse to prevent memory thrashing.
 
+### `FfmpegSource` (`src/video/ffmpeg.zig`)
+Captures from the built-in webcam or any external stream by running `ffmpeg` as a subprocess:
+* **Inputs**: `.webcam` (avfoundation on macOS, v4l2 on Linux, dshow on Windows) or `.url` (RTSP, HTTP MJPEG, HLS, files).
+* **Output contract**: ffmpeg scales to the configured `width × height`, converts to 8-bit grayscale, forces a constant `fps` (`-r`), and writes raw frames to stdout. The source reads exactly `width × height` bytes per frame, so there is no per-frame size limit as with UDP.
+* **Timestamps**: derived from the frame index and `fps`, giving the One Euro filter a stable `Δt`.
+* **End of stream**: when ffmpeg exits (file finished, device unplugged, stream dropped), `nextFrame` returns `null` and the pipeline stops.
+
 ### `JpegScanner` (`src/video/jpeg_lite.zig`)
 A lightweight, zero-allocation JPEG stream analyzer:
 * Validates Start of Image (`0xFFD8`) and End of Image (`0xFFD9`) markers.

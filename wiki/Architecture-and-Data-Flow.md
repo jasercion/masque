@@ -10,10 +10,10 @@ Masque is engineered as a modular, low-latency streaming pipeline that ingests r
 +─────────────────────────────────────────────────────────────+
 │                     Video Ingestion Layer                   │
 │                                                             │
-│  [ SyntheticSource ]              [ UdpFrameSource ]        │
-│  (Procedural Engine)              (Network Socket)          │
-│          │                               │                  │
-│          └───────────────┬───────────────┘                  │
+│  [ SyntheticSource ]   [ UdpFrameSource ]  [ FfmpegSource ] │
+│  (Procedural Engine)   (Network Socket)   (Webcam / URL)    │
+│          │                    │                  │          │
+│          └────────────────────┼──────────────────┘          │
 │                          ▼                                  │
 │             [ video.VideoFrame Buffer ]                     │
 │             (RGB888 / Grayscale Luminance)                  │
@@ -70,7 +70,8 @@ The end-to-end execution path for every video frame follows five deterministic s
 1. `StreamSource.nextFrame(allocator)` is invoked by the coordinator.
 2. In `SyntheticSource`, frame pixels are generated dynamically with moving procedural ocular discs and mouth geometry at the requested resolution (`width` x `height`) and target framerate (`fps`).
 3. In `UdpFrameSource`, UDP datagrams containing raw frame payloads (or MJPEG segments scanned with `JpegScanner`) are assembled into an allocated `VideoFrame`.
-4. Pixel buffers provide luminance extraction $Y = 0.299R + 0.587G + 0.114B$ via `VideoFrame.getLuminance(x, y)` without heap churn.
+4. In `FfmpegSource`, an `ffmpeg` child process captures the webcam (or opens `--stream-url`), scales and converts to grayscale, and the source reads one `width × height` frame at a time from the pipe.
+5. Pixel buffers provide luminance extraction $Y = 0.299R + 0.587G + 0.114B$ via `VideoFrame.getLuminance(x, y)` without heap churn.
 
 ### Stage 2: Facial Landmark & Region-of-Interest Extraction (`src/tracking/`)
 1. `FaceTracker.processFrame(frame, data)` analyzes the current frame.
